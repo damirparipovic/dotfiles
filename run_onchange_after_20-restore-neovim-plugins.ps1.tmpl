@@ -1,0 +1,33 @@
+{{- if eq .chezmoi.os "windows" }}
+# lazy-lock.json: {{ include "AppData/Local/nvim/lazy-lock.json" | sha256sum }}
+$ErrorActionPreference = 'Stop'
+
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+$env:Path = "$userPath;$machinePath"
+
+$nvim = Get-Command nvim.exe -ErrorAction SilentlyContinue
+if ($null -eq $nvim)
+{
+	$nvimCandidates = @(
+		(Join-Path ${env:ProgramFiles} 'Neovim\bin\nvim.exe'),
+		(Join-Path ${env:LOCALAPPDATA} 'nvim\bin\nvim.exe')
+	)
+	$nvimPath = $nvimCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+else
+{
+	$nvimPath = $nvim.Source
+}
+
+if ($null -eq $nvimPath)
+{
+	throw 'Neovim was not found after dependency installation.'
+}
+
+& $nvimPath --headless '+Lazy! restore' +qa
+if ($LASTEXITCODE -ne 0)
+{
+	throw "Neovim plugin restore failed with exit code $LASTEXITCODE."
+}
+{{- end }}

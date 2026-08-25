@@ -1,0 +1,74 @@
+{{- if eq .chezmoi.os "windows" }}
+$ErrorActionPreference = 'Stop'
+
+function Refresh-Path
+{
+	$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+	$machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+	$env:Path = "$userPath;$machinePath"
+}
+
+function Install-WingetPackage
+{
+	param(
+		[string]$Id,
+		[string]$Command
+	)
+
+	if (Get-Command $Command -ErrorAction SilentlyContinue)
+	{
+		return
+	}
+
+	$winget = Get-Command winget.exe -ErrorAction Stop
+	& $winget.Source install --id $Id --exact --source winget --accept-source-agreements --accept-package-agreements --silent
+	if ($LASTEXITCODE -ne 0)
+	{
+		throw "WinGet failed to install $Id with exit code $LASTEXITCODE."
+	}
+
+	Refresh-Path
+}
+
+$packages = @(
+	@{ Id = 'Git.Git'; Command = 'git' }
+	@{ Id = 'Neovim.Neovim'; Command = 'nvim' }
+	@{ Id = 'wez.wezterm'; Command = 'wezterm' }
+	@{ Id = 'Microsoft.PowerShell'; Command = 'pwsh' }
+	@{ Id = 'ajeetdsouza.zoxide'; Command = 'zoxide' }
+	@{ Id = 'BurntSushi.ripgrep.MSVC'; Command = 'rg' }
+	@{ Id = 'sharkdp.fd'; Command = 'fd' }
+	@{ Id = 'OpenJS.NodeJS.LTS'; Command = 'node' }
+	@{ Id = 'GnuWin32.Make'; Command = 'make' }
+	@{ Id = 'GnuWin32.UnZip'; Command = 'unzip' }
+)
+
+foreach ($package in $packages)
+{
+	Install-WingetPackage -Id $package.Id -Command $package.Command
+}
+
+# GnuWin32 installs make and unzip outside PATH on some Windows versions.
+$gnuWin32Bin = Join-Path ${env:ProgramFiles(x86)} 'GnuWin32\bin'
+if (Test-Path $gnuWin32Bin)
+{
+	$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+	if ($userPath -notlike "*$gnuWin32Bin*")
+	{
+		[Environment]::SetEnvironmentVariable('Path', "$userPath;$gnuWin32Bin", 'User')
+	}
+	Refresh-Path
+}
+
+Refresh-Path
+$powerShell = Get-Command pwsh.exe -ErrorAction Stop
+& $powerShell.Source -NoProfile -NonInteractive -Command @'
+if (-not (Get-Module -ListAvailable -Name PowerTab)) {
+    Install-Module -Name PowerTab -Scope CurrentUser -Force -AllowClobber
+}
+'@
+if ($LASTEXITCODE -ne 0)
+{
+	throw "PowerTab installation failed with exit code $LASTEXITCODE."
+}
+{{- end }}

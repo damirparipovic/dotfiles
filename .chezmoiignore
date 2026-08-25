@@ -1,4 +1,15 @@
-# Don't apply Linux shell/TMUX configs on Windows
-dot_bashrc [os = windows]
-dot_zshrc [os = windows]
-dot_tmux.conf [os = windows]
+{{- if eq .chezmoi.os "windows" }}
+# Linux-only shell files
+.bashrc
+.zshrc
+.tmux.conf
+
+# Use Neovim's native Windows config path.
+.config/nvim
+{{- else }}
+# Windows-only configuration and setup scripts
+AppData/Local/nvim
+.config/wezterm
+Documents/PowerShell
+programs/powerscripts
+{{- end }}
